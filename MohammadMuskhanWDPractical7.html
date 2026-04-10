@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tribute to APJ Abdul Kalam</title>
+    <style>
+        /* Reset and body styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        /* Navigation Bar */
+        nav {
+            background: #2c3e50;
+            padding: 1rem 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+        }
+        nav li {
+            margin: 0 2rem;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        nav a:hover {
+            color: #3498db;
+        }
+        /* Main container */
+        .container {
+            margin-top: 80px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 4rem;
+            align-items: start;
+        }
+        /* Profile image */
+        .profile-img {
+            border: 8px solid #3498db;
+            border-radius: 50%;
+            width: 300px;
+            height: 300px;
+            object-fit: cover;
+            box-shadow: 0 10px 30px rgba(52, 152, 219, 0.3);
+            display: block;
+            margin: 0 auto 1rem;
+        }
+        /* Profile section */
+        .profile {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border: 3px solid #ecf0f1;
+            text-align: center;
+        }
+        .name {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .title {
+            font-size: 1.3rem;
+            color: #7f8c8d;
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        /* Content section */
+        .content {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border-left: 6px solid #3498db;
+        }
+        .content h2 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        .content p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            text-align: justify;
+        }
+        .quote {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-left: 6px solid #e74c3c;
+            margin: 2rem 0;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: #34495e;
+            border-radius: 0 10px 10px 0;
+        }
+        .quote::before {
+            content: '"';
+            font-size: 3rem;
+            color: #e74c3c;
+            position: absolute;
+            margin-left: -1rem;
+        }
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                padding: 1rem;
+            }
+            .profile-img {
+                width: 250px;
+                height: 250px;
+            }
+            nav ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            nav li {
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#achievements">Achievements</a></li>
+            <li><a href="#legacy">Legacy</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Profile Section -->
+        <section class="profile">
+            <img src="1000056551.jpg" alt="APJ Abdul Kalam" class="profile-img">
+            <h1 class="name">A. P. J. Abdul Kalam</h1>
+            <p class="title">Missile Man of India & People's President</p>
+        </section>
+
+        <!-- Content Section -->
+        <section class="content">
+            <h2 id="about">Early Life</h2>
+            <p>Avul Pakir Jainulabdeen Abdul Kalam was born on October 15, 1931, in Rameswaram, Tamil Nadu, to a humble Tamil Muslim family. Despite financial hardships, he pursued his passion for flight and science, selling newspapers to fund his education.</p>
+
+            <h2 id="achievements">Scientific Contributions</h2>
+            <p>Dr. Kalam was a key figure in India's space and missile programs. He led the development of SLV-III, India's first satellite launch vehicle, and played a pivotal role in projects like Agni and Prithvi missiles, earning him the title "Missile Man of India."</p>
+
+            <div class="quote">
+                "Dream is not that which you see while sleeping; it is something that does not let you sleep."
+            </div>
+
+            <h2 id="legacy">Presidency & Legacy</h2>
+            <p>Serving as the 11th President of India from 2002 to 2007, Kalam was known as the "People's President." He inspired millions through his books like "Wings of Fire" and his vision for a developed India by 2020. He passed away on July 27, 2015, while delivering a lecture.</p>
+        </section>
+    </div>
+</body>
+</html>
