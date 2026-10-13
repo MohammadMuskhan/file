@@ -1,0 +1,145 @@
+import json
+import os
+
+DATA_FILE = "attendance_data.json"
+
+def load_data():
+    """Loads student and attendance data from the JSON file with error handling."""
+    if not os.path.exists(DATA_FILE):
+        return {}
+    try:
+        with open(DATA_FILE, "r") as file:
+            return json.load(file)
+    except json.JSONDecodeError:
+        print("Error: Attendance data file is corrupted. Starting with an empty database.")
+        return {}
+    except Exception as e:
+        print(f"An unexpected error occurred while loading data: {e}")
+        return {}
+
+def save_data(data):
+    """Saves student and attendance data to the JSON file with error handling."""
+    try:
+        with open(DATA_FILE, "w") as file:
+            json.dump(data, file, indent=4)
+    except Exception as e:
+        print(f"Error: Could not save data to file. {e}")
+
+def add_student(data):
+    """Adds a new student to the system."""
+    student_id = input("Enter Student ID (e.g., S001): ").strip()
+    if not student_id:
+        print("Error: Student ID cannot be empty.")
+        return
+    
+    if student_id in data:
+        print(f"Error: Student with ID {student_id} already exists.")
+        return
+        
+    name = input("Enter Student Name: ").strip()
+    if not name:
+        print("Error: Name cannot be empty.")
+        return
+        
+    data[student_id] = {
+        "name": name,
+        "attendance": {}  # Format: {"YYYY-MM-DD": "Present" / "Absent"}
+    }
+    save_data(data)
+    print(f"Success: Student '{name}' added successfully.")
+
+def mark_attendance(data):
+    """Records daily student attendance for a specific date."""
+    if not data:
+        print("No students found in the system. Please add students first.")
+        return
+        
+    date_str = input("Enter Date (YYYY-MM-DD): ").strip()
+    if not date_str:
+        print("Error: Date cannot be empty.")
+        return
+
+    print("\n--- Mark Attendance (P for Present, A for Absent) ---")
+    for student_id, details in data.items():
+        while True:
+            status = input(f"[{student_id}] {details['name']} (P/A): ").strip().upper()
+            if status in ['P', 'A']:
+                full_status = "Present" if status == 'P' else "Absent"
+                data[student_id]["attendance"][date_str] = full_status
+                break
+            else:
+                print("Invalid input. Please enter 'P' for Present or 'A' for Absent.")
+                
+    save_data(data)
+    print(f"Success: Attendance recorded for date {date_str}.")
+
+def generate_report(data):
+    """Calculates percentages, identifies defaulters, and generates reports."""
+    if not data:
+        print("No attendance records found.")
+        return
+
+    try:
+        threshold = float(input("Enter Defaulter Attendance Threshold % (e.g., 75): "))
+    except ValueError:
+        print("Invalid input. Using default threshold of 75%.")
+        threshold = 75.0
+
+    print("\n" + "="*60)
+    print(f"{'ATTENDANCE REPORT & DEFAULTER ANALYSIS':^60}")
+    print("="*60)
+    print(f"{'ID':<10} | {'Name':<20} | {'Total Days':<12} | {'Percentage':<10} | {'Status':<10}")
+    print("-" * 60)
+
+    defaulters = []
+
+    for student_id, details in data.items():
+        attendance_records = details["attendance"]
+        total_classes = len(attendance_records)
+        
+        if total_classes == 0:
+            percentage = 0.0
+            status = "No Records"
+        else:
+            present_count = sum(1 for status in attendance_records.values() if status == "Present")
+            percentage = (present_count / total_classes) * 100
+            status = "Defaulter" if percentage < threshold else "Regular"
+            if status == "Defaulter":
+                defaulters.append(details['name'])
+
+        print(f"{student_id:<10} | {details['name']:<20} | {total_classes:<12} | {percentage:.2f}%     | {status:<10}")
+
+    print("="*60)
+    if defaulters:
+        print(f"⚠️ Defaulters Alert (Below {threshold}%): {', '.join(defaulters)}")
+    else:
+        print("🎉 All students meet the attendance criteria!")
+    print("="*60 + "\n")
+
+def main():
+    """Main menu loop for the application."""
+    data = load_data()
+    
+    while True:
+        print("\n--- Student Attendance Tracker ---")
+        print("1. Add Student")
+        print("2. Mark Daily Attendance")
+        print("3. Generate Attendance Report & Defaulters List")
+        print("4. Exit")
+        
+        choice = input("Enter your choice (1-4): ").strip()
+        
+        if choice == '1':
+            add_student(data)
+        elif choice == '2':
+            mark_attendance(data)
+        elif choice == '3':
+            generate_report(data)
+        elif choice == '4':
+            print("Exiting application. Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please enter a number between 1 and 4.")
+
+if _name_ == "_main_":
+    main()
