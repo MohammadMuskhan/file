@@ -1,0 +1,228 @@
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+# Database file
+DB_FILE = Path("attendance.db")
+
+
+# Initialize database
+def initialize_database():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_name TEXT NOT NULL,
+            attendance_date TEXT NOT NULL,
+            status TEXT NOT NULL
+                CHECK(status IN ('Present', 'Absent'))
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# Mark attendance
+def mark_attendance():
+    name = input("Enter student name: ").strip()
+
+    if not name:
+        print("Student name cannot be empty.")
+        return
+
+    date = input(
+        "Enter date (YYYY-MM-DD), or press Enter for today: "
+    ).strip()
+
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+    else:
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            print("Invalid date. Use YYYY-MM-DD.")
+            return
+
+    status = input("Enter status (Present/Absent): ").strip().title()
+
+    if status not in ("Present", "Absent"):
+        print("Invalid status. Enter Present or Absent.")
+        return
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO attendance
+            (student_name, attendance_date, status)
+            VALUES (?, ?, ?)
+        """, (name, date, status))
+
+        conn.commit()
+        print("Attendance marked successfully!")
+
+    except sqlite3.Error as error:
+        print("Database error:", error)
+
+    finally:
+        conn.close()
+
+
+# View attendance records
+def view_attendance():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, student_name, attendance_date, status
+        FROM attendance
+        ORDER BY attendance_date DESC, student_name ASC
+    """)
+
+    records = cursor.fetchall()
+    conn.close()
+
+    if not records:
+        print("\nNo attendance records found.")
+        return
+
+    print("\n" + "=" * 65)
+    print(f"{'ID':<6}{'Student Name':<25}{'Date':<18}{'Status':<12}")
+    print("=" * 65)
+
+    for record in records:
+        print(
+            f"{record[0]:<6}"
+            f"{record[1]:<25}"
+            f"{record[2]:<18}"
+            f"{record[3]:<12}"
+        )
+
+    print("=" * 65)
+
+
+# Search attendance
+def search_attendance():
+    name = input("Enter student name to search: ").strip()
+
+    if not name:
+        print("Please enter a student name.")
+        return
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, student_name, attendance_date, status
+        FROM attendance
+        WHERE student_name LIKE ?
+        ORDER BY attendance_date DESC
+    """, ("%" + name + "%",))
+
+    records = cursor.fetchall()
+    conn.close()
+
+    if not records:
+        print("No matching records found.")
+        return
+
+    print("\nSearch Results")
+    print("-" * 60)
+
+    for record in records:
+        print(
+            f"ID: {record[0]} | "
+            f"Name: {record[1]} | "
+            f"Date: {record[2]} | "
+            f"Status: {record[3]}"
+        )
+
+
+# Attendance summary
+def attendance_summary():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            student_name,
+            COUNT(*) AS total_days,
+            SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END)
+        FROM attendance
+        GROUP BY student_name
+        ORDER BY student_name
+    """)
+
+    records = cursor.fetchall()
+    conn.close()
+
+    if not records:
+        print("No attendance records available.")
+        return
+
+    print("\n" + "=" * 75)
+    print(
+        f"{'Student Name':<25}"
+        f"{'Total':<10}"
+        f"{'Present':<10}"
+        f"{'Absent':<10}"
+        f"{'Percentage':<15}"
+    )
+    print("=" * 75)
+
+    for name, total, present, absent in records:
+        percentage = (present / total * 100) if total else 0
+
+        print(
+            f"{name:<25}"
+            f"{total:<10}"
+            f"{present:<10}"
+            f"{absent:<10}"
+            f"{percentage:.2f}%"
+        )
+
+    print("=" * 75)
+
+
+# Main menu
+def main():
+    initialize_database()
+
+    while True:
+        print("\n===== ATTENDANCE TRACKER =====")
+        print("1. Mark Attendance")
+        print("2. View Attendance")
+        print("3. Search Attendance")
+        print("4. Attendance Summary")
+        print("5. Exit")
+
+        choice = input("Enter your choice (1-5): ").strip()
+
+        if choice == "1":
+            mark_attendance()
+
+        elif choice == "2":
+            view_attendance()
+
+        elif choice == "3":
+            search_attendance()
+
+        elif choice == "4":
+            attendance_summary()
+
+        elif choice == "5":
+            print("Thank you for using Attendance Tracker!")
+            break
+
+        else:
+            print("Invalid choice. Please enter a number from 1 to 5.")
+
+
+# CORRECT ENTRY POINT — FIXES YOUR NAMEERROR
+if _name_ == "_main_":
+    main()
