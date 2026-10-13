@@ -1,0 +1,132 @@
+import csv
+import os
+from datetime import date
+
+FILE_NAME = "attendance.csv"
+THRESHOLD = 75
+
+
+def initialize_file():
+    if not os.path.exists(FILE_NAME):
+        with open(FILE_NAME, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Roll No", "Name", "Date", "Status"])
+
+
+def mark_attendance():
+    roll = input("Enter roll number: ")
+    name = input("Enter student name: ")
+    today = date.today().isoformat()
+
+    status = input("Enter attendance (P/A): ").upper()
+    if status not in ("P", "A"):
+        print("Invalid status! Enter P or A.")
+        return
+
+    with open(FILE_NAME, "a", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([roll, name, today, status])
+
+    print("Attendance recorded successfully!")
+
+
+def attendance_report():
+    roll = input("Enter roll number: ")
+    total = present = 0
+    student_name = ""
+
+    with open(FILE_NAME, "r", newline="") as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            if row["Roll No"] == roll:
+                student_name = row["Name"]
+                total += 1
+                if row["Status"] == "P":
+                    present += 1
+
+    if total == 0:
+        print("No attendance records found.")
+        return
+
+    percentage = (present / total) * 100
+
+    print("\n--- Attendance Report ---")
+    print("Roll Number:", roll)
+    print("Student Name:", student_name)
+    print("Total Classes:", total)
+    print("Classes Attended:", present)
+    print("Classes Absent:", total - present)
+    print(f"Attendance Percentage: {percentage:.2f}%")
+
+    if percentage < THRESHOLD:
+        print("Warning: Student is an attendance defaulter!")
+    else:
+        print("Attendance requirement satisfied.")
+
+
+def all_students_report():
+    students = {}
+
+    with open(FILE_NAME, "r", newline="") as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            roll = row["Roll No"]
+
+            if roll not in students:
+                students[roll] = {
+                    "name": row["Name"],
+                    "total": 0,
+                    "present": 0
+                }
+
+            students[roll]["total"] += 1
+            if row["Status"] == "P":
+                students[roll]["present"] += 1
+
+    print("\n--- All Students Attendance Report ---")
+
+    if not students:
+        print("No records available.")
+        return
+
+    print(f"{'Roll':<10}{'Name':<20}{'Percentage':<15}{'Status'}")
+
+    for roll, data in students.items():
+        percentage = data["present"] / data["total"] * 100
+        status = "Defaulter" if percentage < THRESHOLD else "Eligible"
+
+        print(
+            f"{roll:<10}{data['name']:<20}"
+            f"{percentage:.2f}%{'':<9}{status}"
+        )
+
+
+def main():
+    initialize_file()
+
+    while True:
+        print("\n===== Student Attendance Tracker =====")
+        print("1. Mark Attendance")
+        print("2. View Student Attendance Report")
+        print("3. View All Students Report")
+        print("4. Exit")
+
+        choice = input("Enter your choice: ")
+
+        if choice == "1":
+            mark_attendance()
+        elif choice == "2":
+            attendance_report()
+        elif choice == "3":
+            all_students_report()
+        elif choice == "4":
+            print("Thank you for using the system!")
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+
+if __name__ == "__main__":
+    main()
