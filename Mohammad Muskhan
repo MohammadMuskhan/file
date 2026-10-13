@@ -1,0 +1,265 @@
+import csv
+import sqlite3
+from datetime import date, datetime
+from pathlib import Path
+
+DB_FILE = Path(_file_).with_name("attendance.db")
+DEFAULT_THRESHOLD = 75.0
+
+
+def connect():
+    """Open the database and ensure tables exist."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            roll_no TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            class_name TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            attendance_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('Present', 'Absent', 'Late')),
+            UNIQUE(student_id, attendance_date),
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+def read_nonempty(prompt):
+    while True:
+        value = input(prompt).strip()
+        if value:
+            return value
+        print("This field cannot be empty.")
+
+
+def valid_date(prompt="Date (YYYY-MM-DD; press Enter for today): "):
+    while True:
+        raw = input(prompt).strip()
+        if not raw:
+            return date.today().isoformat()
+        try:
+            return datetime.strptime(raw, "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            print("Invalid date. Please use YYYY-MM-DD, e.g. 2026-10-13.")
+
+
+def add_student(conn):
+    print("\n--- Add Student ---")
+    roll_no = read_nonempty("Roll number: ")
+    name = read_nonempty("Student name: ")
+    class_name = read_nonempty("Class/section: ")
+    try:
+        conn.execute(
+            "INSERT INTO students (roll_no, name, class_name) VALUES (?, ?, ?)",
+            (roll_no, name, class_name),
+        )
+        conn.commit()
+        print("Student added successfully.")
+    except sqlite3.IntegrityError:
+        print("That roll number already exists. Use a unique roll number.")
+
+
+def list_students(conn):
+    rows = conn.execute(
+        "SELECT id, roll_no, name, class_name FROM students ORDER BY roll_no"
+    ).fetchall()
+    print("\n--- Students ---")
+    if not rows:
+        print("No students found. Add students first.")
+        return
+    print(f"{'ID':<5} {'Roll No.':<14} {'Name':<28} {'Class':<16}")
+    print("-" * 65)
+    for student_id, roll_no, name, class_name in rows:
+        print(f"{student_id:<5} {roll_no:<14} {name:<28} {class_name:<16}")
+
+
+def choose_status():
+    options = {"1": "Present", "2": "Absent", "3": "Late"}
+    while True:
+        print("1. Present   2. Absent   3. Late")
+        choice = input("Status: ").strip()
+        if choice in options:
+            return options[choice]
+        print("Choose 1, 2, or 3.")
+
+
+def record_attendance(conn):
+    print("\n--- Record Attendance ---")
+    students = conn.execute(
+        "SELECT id, roll_no, name FROM students ORDER BY roll_no"
+    ).fetchall()
+    if not students:
+        print("No students found. Add students first.")
+        return
+
+    attendance_date = valid_date()
+    print(f"Recording attendance for {attendance_date}")
+    print("Enter a status for each student.")
+    for student_id, roll_no, name in students:
+        print(f"\n{roll_no} - {name}")
+        status = choose_status()
+        conn.execute("""
+            INSERT INTO attendance (student_id, attendance_date, status)
+            VALUES (?, ?, ?)
+            ON CONFLICT(student_id, attendance_date)
+            DO UPDATE SET status = excluded.status
+        """, (student_id, attendance_date, status))
+    conn.commit()
+    print("Attendance saved. Existing records for that date were updated.")
+
+
+def attendance_summary(conn, threshold=DEFAULT_THRESHOLD):
+    """Return summary rows; Late counts as present."""
+    students = conn.execute("""
+        SELECT s.id, s.roll_no, s.name, s.class_name,
+               COUNT(a.id) AS total_days,
+               SUM(CASE WHEN a.status IN ('Present', 'Late') THEN 1 ELSE 0 END)
+                   AS attended_days
+        FROM students s
+        LEFT JOIN attendance a ON a.student_id = s.id
+        GROUP BY s.id, s.roll_no, s.name, s.class_name
+        ORDER BY s.roll_no
+    """).fetchall()
+
+    summaries = []
+    for sid, roll_no, name, class_name, total, attended in students:
+        attended = attended or 0
+        percentage = (attended / total * 100) if total else 0.0
+        summaries.append({
+            "id": sid,
+            "roll_no": roll_no,
+            "name": name,
+            "class_name": class_name,
+            "total_days": total,
+            "attended_days": attended,
+            "absent_days": total - attended,
+            "percentage": percentage,
+            "defaulter": total > 0 and percentage < threshold,
+        })
+    return summaries
+
+
+def show_report(conn):
+    print("\n--- Attendance Report ---")
+    raw_threshold = input(
+        f"Defaulter threshold percentage (default {DEFAULT_THRESHOLD:g}): "
+    ).strip()
+    try:
+        threshold = float(raw_threshold) if raw_threshold else DEFAULT_THRESHOLD
+        if not 0 <= threshold <= 100:
+            raise ValueError
+    except ValueError:
+        print("Please enter a number from 0 to 100.")
+        return
+
+    rows = attendance_summary(conn, threshold)
+    if not rows:
+        print("No students found.")
+        return
+    print(f"\nDefaulter threshold: below {threshold:.1f}%")
+    print(f"{'Roll No.':<12} {'Name':<24} {'Class':<12} "
+          f"{'Days':>5} {'Attended':>9} {'Absent':>7} {'Percent':>9} {'Status':>11}")
+    print("-" * 96)
+    for row in rows:
+        status = "DEFAULTER" if row["defaulter"] else (
+            "No records" if row["total_days"] == 0 else "OK"
+        )
+        print(
+            f"{row['roll_no']:<12} {row['name'][:23]:<24} "
+            f"{row['class_name'][:11]:<12} {row['total_days']:>5} "
+            f"{row['attended_days']:>9} {row['absent_days']:>7} "
+            f"{row['percentage']:>8.2f}% {status:>11}"
+        )
+
+
+def export_csv(conn):
+    print("\n--- Export Attendance Report ---")
+    output_name = input("CSV filename (default attendance_report.csv): ").strip()
+    if not output_name:
+        output_name = "attendance_report.csv"
+    output_path = Path(output_name)
+    if output_path.suffix.lower() != ".csv":
+        output_path = output_path.with_suffix(".csv")
+
+    rows = attendance_summary(conn)
+    with output_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "Roll Number", "Name", "Class", "Recorded Days",
+            "Attended Days", "Absent Days", "Attendance Percentage"
+        ])
+        for row in rows:
+            writer.writerow([
+                row["roll_no"], row["name"], row["class_name"],
+                row["total_days"], row["attended_days"], row["absent_days"],
+                f"{row['percentage']:.2f}"
+            ])
+    print(f"Report exported to: {output_path.resolve()}")
+
+
+def show_daily_records(conn):
+    print("\n--- Daily Attendance Records ---")
+    attendance_date = valid_date()
+    rows = conn.execute("""
+        SELECT s.roll_no, s.name, s.class_name, a.status
+        FROM attendance a
+        JOIN students s ON s.id = a.student_id
+        WHERE a.attendance_date = ?
+        ORDER BY s.roll_no
+    """, (attendance_date,)).fetchall()
+    if not rows:
+        print(f"No attendance records found for {attendance_date}.")
+        return
+    print(f"Date: {attendance_date}")
+    print(f"{'Roll No.':<14} {'Name':<28} {'Class':<16} {'Status':<10}")
+    print("-" * 70)
+    for roll_no, name, class_name, status in rows:
+        print(f"{roll_no:<14} {name:<28} {class_name:<16} {status:<10}")
+
+
+def main():
+    conn = connect()
+    actions = {
+        "1": ("Add student", add_student),
+        "2": ("List students", list_students),
+        "3": ("Record/update daily attendance", record_attendance),
+        "4": ("View attendance percentages and defaulters", show_report),
+        "5": ("View attendance for a date", show_daily_records),
+        "6": ("Export summary to CSV", export_csv),
+    }
+    try:
+        while True:
+            print("\n" + "=" * 46)
+            print("       STUDENT ATTENDANCE TRACKER")
+            print("=" * 46)
+            for key, (label, _) in actions.items():
+                print(f"{key}. {label}")
+            print("0. Exit")
+            choice = input("Choose an option: ").strip()
+            if choice == "0":
+                print("Goodbye!")
+                break
+            if choice not in actions:
+                print("Invalid option. Please choose from the menu.")
+                continue
+            try:
+                actions[choice][1](conn)
+            except (sqlite3.Error, OSError) as error:
+                print(f"An error occurred: {error}")
+    except (KeyboardInterrupt, EOFError):
+        print("\nProgram stopped.")
+    finally:
+        conn.close()
+
+
+if _name_ == "_main_":
+    main()
